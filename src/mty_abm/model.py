@@ -2,7 +2,7 @@ from agents.households import HouseholdAgent
 from agents.landlords import LandlordAgent
 from agents.municipalities import MunicipalityAgent
 from environment.city_graph import CityNetwork 
-from mesa import BaseScheduler
+from mesa import BaseScheduler #TODO: This is deprecated we need to use the new scheduler which is shuffle.do and .do
 import networkx as nx
 import mesa
 
