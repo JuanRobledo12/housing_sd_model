@@ -22,8 +22,8 @@ class ModelVariables:
         """
         # load config setup from the YAML file
         config = self.load_config_file()
-        parameters = config["parameters"]
-        policies = config["policies"]
+        parameters = config["model_parameters"]
+        policies = config["model_policies"]
 
 
         # Initialize an empty dictionary to store model variables
