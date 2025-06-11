@@ -1,0 +1,16 @@
+model_parameters:
+  population: # Number of people in the model
+  avg_household_size: # Number of people per household
+  private_investment: # Amount of private investment in the model
+  gdp_per_capita: # GDP per capita in the model
+  base_construction_rate: # Base rate of construction in the model it should be 0 to 1
+  total_land_area: # Total land area in the model
+  housing_demolition_rate: # Rate of housing demolition in the model it should be 0 to 1
+
+model_policies:
+  financial_availability: #NOTE: idk how to define this
+  tax_rate: #NOTE: idk how to define this
+  fraction_of_budget_for_transportation: # Goes from 0 to 1
+  zoning_and_regulation: #NOTE: idk how to define this
+  fraction_of_investment_in_public_transportation: #Goes from 0 to 1
+  engagement_with_stakeholders: #NOTE: idk how to define this
