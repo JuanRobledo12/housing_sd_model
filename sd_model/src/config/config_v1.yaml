@@ -1,0 +1,34 @@
+simulation_parameters:
+  houses_init: # Initial number of houses in the model
+  sim_time: # Simulation time in years
+  time_step: # Time step for the simulation in years
+
+
+model_parameters:
+  population: # Number of people in the model
+  avg_household_size: # Number of people per household
+  private_investment:  # Amount of private investment in the model
+  gdp_per_capita: # GDP per capita in the model
+  base_construction_rate: # Base rate of construction in the model it should be 0 to 1
+  total_land_area: # Total land area in the model
+  housing_demolition_rate: # Rate of housing demolition in the model it should be 0 to 1
+  elast_hc:             2.0     # cost sensitivity to scarcity (≥1)
+  K_fin:                0.5     # half‐saturation for financing effect
+  elasticity_tax:       3.0     # tax→construction sensitivity
+  k_eng:                5.0     # stakeholder engagement steepness
+  mid_eng:              0.5     # stakeholder engagement midpoint
+  zoning_mult:          2.0     # zoning max density multiplier
+  land_per_house_base:  0.0     # computed as total_land_area/initial_houses
+  # gdp_ref:              20000   # reference GDP/capita
+  # elast_gdp:            0.2     # elasticity of land demand to GDP
+  cost_per_service_unit:1000    # cost per unit of service
+  K_inv:                0.5     # half‐saturation for private investment
+  # avg_build_time:       2.0     # years from construction→stock
+
+model_policies:
+  financial_availability:       0.8   # 0–1 index of credit availability
+  tax_rate:                     0.2   # 0–1 fraction (e.g. 20%)
+  fraction_of_budget_for_transportation: 0.3 # 0–1 fraction
+  zoning_and_regulation:        0.7   # 0–1 index
+  fraction_of_investment_in_public_transportation: 0.6 # 0–1 fraction
+  engagement_with_stakeholders: 0.5   # 0–1 index
