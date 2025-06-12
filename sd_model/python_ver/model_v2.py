@@ -20,12 +20,13 @@ class HousingModel:
         return self.u.load_yaml(self.config_yaml_path)
     
 
-    def calculate_model_variables(self, houses) -> dict:
+    def calculate_model_variables(self, houses, time) -> dict:
         """
         Calculates and returns a dictionary of model variables based on the current housing stock and model configuration.
         This method computes a variety of intermediate and output variables used in the system dynamics housing model, including variables related to housing, financing, taxes, funding, transportation investment, land use, services investment, and construction. The calculations use model parameters and policies provided in the configuration, as well as utility functions for mathematical transformations.
         Args:
             houses (float or int): The current number of houses (housing stock) in the model.
+            time (float): The current time in the model, used for dynamic calculations.
         Returns:
             dict: A dictionary containing all computed model variables.
         Notes:
@@ -41,9 +42,19 @@ class HousingModel:
 
         # Initialize an empty dictionary to store model variables
         model_variables = {}
+        
+       
+       # Define population as a function of time
+        P0 = parameters["initial_pop"]
+        r  = funct_params["pop_growth_rate"]
+
+        # log1p ensures ln(1 + r * t); multiply by P0 gives growth magnitude,
+        # then add P0 so that at t=0 → population == P0.
+        population = P0 + P0 * np.log1p(r * time)
+        model_variables["population"] = population
 
         # housing variables
-        model_variables["households"] = parameters["population"] / parameters["avg_household_size"]
+        model_variables["households"] = model_variables["population"] / parameters["avg_household_size"]
         model_variables["housholds_to_houses_ratio"] = model_variables["households"] / houses
         model_variables["housing_scarcity"] = max(0, (1 - model_variables["housholds_to_houses_ratio"])) #NOTE: Goes from 0 to 1, where 0 means no scarcity and 1 means maximum scarcity
         model_variables["effect_of_housing_scarcity_on_cost"] = self.u.normalized_exp_growth(model_variables["housing_scarcity"], funct_params["scarcity_sensitivity"]) #NOTE: Goes from 0 to 1
@@ -99,14 +110,19 @@ class HousingModel:
 
         return housesD
     
-    def run(self, houses):
+    def run_step(self, houses, t):
         """
-        Run the model to calculate variables and derivatives.
-
-        :param houses: Current number of houses.
-        :return: Tuple containing model variables and their derivatives.
+        Executes a single simulation step for the housing model.
+        Args:
+            houses (dict or custom object): The current state of the housing stock or model variables.
+            t (int or float): The current time step or simulation time.
+        Returns:
+            tuple: A tuple containing:
+                - housesD: The computed derivatives or changes in the housing stock.
+                - model_variables: The calculated model variables for this time step.
         """
-        model_variables = self.calculate_model_variables(houses)
+       
+        model_variables = self.calculate_model_variables(houses, t)
         housesD = self.calculate_stock_derivatives(model_variables)
 
         return housesD, model_variables
