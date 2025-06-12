@@ -47,18 +47,23 @@ class HousingModel:
        # Define population as a function of time
         P0 = parameters["initial_pop"]
         r  = funct_params["pop_growth_rate"]
-
-        # log1p ensures ln(1 + r * t); multiply by P0 gives growth magnitude,
-        # then add P0 so that at t=0 → population == P0.
-        population = P0 + P0 * np.log1p(r * time)
+        K = funct_params["pop_carrying_capacity"]
+        population = K / (1 + ((K - P0)/P0) * np.exp(-r * time))
         model_variables["population"] = population
 
         # housing variables
         model_variables["households"] = model_variables["population"] / parameters["avg_household_size"]
-        model_variables["housholds_to_houses_ratio"] = model_variables["households"] / houses
-        model_variables["housing_scarcity"] = max(0, (1 - model_variables["housholds_to_houses_ratio"])) #NOTE: Goes from 0 to 1, where 0 means no scarcity and 1 means maximum scarcity
+        model_variables["houses_to_households_ratio"] = houses / model_variables["households"] #NOTE: > 1 means there are more houses than households, < 1 means there are more households than houses
+        model_variables["housing_scarcity"] = max(0, (1 - model_variables["houses_to_households_ratio"])) #NOTE: Goes from 0 to 1, where 0 means no scarcity and 1 means maximum scarcity
+        model_variables["housing_slack"] = max(0, (model_variables["houses_to_households_ratio"] - 1))  # NOTE: > 1 means houses oversupply
         model_variables["effect_of_housing_scarcity_on_cost"] = self.u.normalized_exp_growth(model_variables["housing_scarcity"], funct_params["scarcity_sensitivity"]) #NOTE: Goes from 0 to 1
-        model_variables["cost_of_housing"] = (1 + model_variables["effect_of_housing_scarcity_on_cost"]) * parameters["avg_housing_cost"] #NOTE: Model output, right now it cannot go below the average housing cost, but it can go above it.
+        model_variables["effect_of_housing_slack_on_cost"] = self.u.normalized_exp_growth(model_variables["housing_slack"], funct_params["slack_sensitivity"]) #NOTE: Goes from 0 to 1
+        delta = model_variables["effect_of_housing_scarcity_on_cost"] - model_variables["effect_of_housing_slack_on_cost"]
+        min_cost = 0.5 * parameters["avg_housing_cost"]
+        model_variables["cost_of_housing"] = max(
+            min_cost,
+            (1 + delta) * parameters["avg_housing_cost"]
+        ) #NOTE: This is a model output
 
         # financing variables
         model_variables["effect_of_financing_on_construction_rate"] = self.u.saturating_response(policies["financial_availability"], funct_params["K_fin"]) #NOTE: Goes from 0 to 1
@@ -77,7 +82,7 @@ class HousingModel:
         model_variables["public_transportation_investment"] = model_variables["funding_for_transportation"] * policies["fraction_of_investment_in_public_transportation"]
 
         # land use variables
-        model_variables["density_index"] = (model_variables["public_transportation_investment"] * policies["zoning_and_regulation"]) / model_variables["private_transportation_investment"] #TODO: Should this index be from 0 to 1?
+        model_variables["density_index"] = (model_variables["public_transportation_investment"] * policies["zoning_and_regulation"]) / model_variables["private_transportation_investment"] #TODO: Should this index be from 0 to 1? Check behavior of this variable
         model_variables["time_in_traffic"] = 1.0 / model_variables["density_index"] #NOTE: This is a model output #TODO: Should we include avg_time_in_traffic as a parameter that multiplies the density index?
         model_variables["land_per_house"] = parameters["avg_land_per_house"] / model_variables["density_index"]
         model_variables["total_land_used_for_housing"] = model_variables["land_per_house"] * houses
@@ -93,7 +98,7 @@ class HousingModel:
         # construction variables
         model_variables["effect_of_private_investment_on_base_construction_rate"] = self.u.saturating_response(parameters["private_investment"], funct_params["K_inv"]) #NOTE: Goes from 0 to 1
         model_variables["construction_rate_of_houses"] = (model_variables["effect_of_private_investment_on_base_construction_rate"] * parameters["base_construction_rate"] * model_variables["effect_of_financing_on_construction_rate"]) / model_variables["effect_of_taxes_on_construction_rate"] #TODO: effect of private investment needs delay. #NOTE: Goes from 0 to 1
-        model_variables["construction_of_houses"] = houses * model_variables["housing_scarcity"] * model_variables["construction_rate_of_houses"] * model_variables["available_land_for_housing"]
+        model_variables["construction_of_houses"] = houses * model_variables["housing_scarcity"] * model_variables["construction_rate_of_houses"] * model_variables["available_land_for_housing"] # Should the housing_slack be included here?
 
         # Housing stock flows
         model_variables["housing_stock_increase"] = model_variables["construction_of_houses"] #TODO: We have to add a delay effect here, the construction of houses takes time to be reflected in the housing stock
