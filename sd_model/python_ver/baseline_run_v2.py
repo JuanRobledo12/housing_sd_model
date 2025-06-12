@@ -7,6 +7,8 @@ from model_v2 import HousingModel
 # Set up paths
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 CONFIG_DIR_PATH = os.path.join(DIR_PATH, "config")
+OUTPUT_DIR_PATH = os.path.join(DIR_PATH, "output")
+FIGURES_DIR_PATH = os.path.join(OUTPUT_DIR_PATH, "figures")
 
 # Load config file
 config_file_name = "config_v2"
@@ -27,12 +29,20 @@ time_range = np.arange(0, sim_time + time_step, time_step)
 # Store simulation results
 results = {
     "year": [],
-    "population": [],
+    "households": [],
+    # "houses_to_households_ratio": [],
+    # "housing_scarcity": [],
+    # "effect_of_housing_scarcity_on_cost": [],
+    # "housing_slack": [],
+    # "effect_of_housing_slack_on_cost": [],
     "houses": [],
     "cost_of_housing": [],
+    "private_transportation_investment": [],
+    "public_transportation_investment": [],
     "time_in_traffic": [],
-    "city_sprawl": [],
-    "access_to_services": [],
+    "density_index": [],
+    # "city_sprawl": [],
+    # "access_to_services": [],
 }
 
 # Run simulation
@@ -42,11 +52,19 @@ for year in time_range:
     # Store results
     results["year"].append(year)
     results["houses"].append(houses)
-    results["population"].append(vars["population"])
+    results["households"].append(vars["households"])
+    # results["houses_to_households_ratio"].append(vars["houses_to_households_ratio"])
+    # results["housing_scarcity"].append(vars["housing_scarcity"])
+    # results["effect_of_housing_scarcity_on_cost"].append(vars["effect_of_housing_scarcity_on_cost"])
     results["cost_of_housing"].append(vars["cost_of_housing"])
+    # results["housing_slack"].append(vars["housing_slack"])
+    # results["effect_of_housing_slack_on_cost"].append(vars["effect_of_housing_slack_on_cost"])
     results["time_in_traffic"].append(vars["time_in_traffic"])
-    results["city_sprawl"].append(vars["city_sprawl"])
-    results["access_to_services"].append(vars["access_to_services"])
+    results["density_index"].append(vars["density_index"])
+    results["private_transportation_investment"].append(vars["private_transportation_investment"])
+    results["public_transportation_investment"].append(vars["public_transportation_investment"])
+    # results["city_sprawl"].append(vars["city_sprawl"])
+    # results["access_to_services"].append(vars["access_to_services"])
     
     # Update state
     houses += housesD * time_step
@@ -54,22 +72,22 @@ for year in time_range:
 # Convert to DataFrame
 df = pd.DataFrame(results)
 
-# Plot results
-fig, axs = plt.subplots(3, 2, figsize=(14, 10))
-axs[0, 0].plot(df["year"], df["houses"])
-axs[0, 0].set_title("Housing Stock Over Time")
+# Plot all columns except 'year'
+plot_columns = [col for col in df.columns if col != "year"]
+n_cols = 2
+n_rows = int(np.ceil(len(plot_columns) / n_cols))
 
-axs[0, 1].plot(df["year"], df["cost_of_housing"])
-axs[0, 1].set_title("Cost of Housing Over Time")
+fig, axs = plt.subplots(n_rows, n_cols, figsize=(7 * n_cols, 4 * n_rows))
+axs = axs.flatten()
 
-axs[1, 0].plot(df["year"], df["time_in_traffic"])
-axs[1, 0].set_title("Avg. Time in Traffic Over Time")
+for i, col in enumerate(plot_columns):
+    axs[i].plot(df["year"], df[col])
+    axs[i].set_title(f"{col.replace('_', ' ').title()} Over Time")
 
-axs[1, 1].plot(df["year"], df["access_to_services"])
-axs[1, 1].set_title("Access to Services Over Time")
-
-axs[2, 0].plot(df["year"], df["population"])
-axs[2, 0].set_title("Population Over Time")
+# Hide any unused subplots
+for j in range(i + 1, len(axs)):
+    fig.delaxes(axs[j])
 
 plt.tight_layout()
 plt.show()
+plt.savefig(os.path.join(FIGURES_DIR_PATH, "simulation_results.png"))
