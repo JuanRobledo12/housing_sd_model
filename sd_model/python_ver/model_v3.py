@@ -12,6 +12,7 @@ class HousingModel:
         delays = self.config.get("delays", {})
         self.tax_delay = delays.get("tax_effect_delay", 1.0)
         self.inv_delay = delays.get("private_investment_delay", 1.0)
+        self.housing_delay = delays.get("housing_stock_delay", 1.0)
 
         # Initialize delay‐state stocks with their instantaneous values
         params   = self.config["model_parameters"]
@@ -27,6 +28,8 @@ class HousingModel:
             params["private_investment"],
             fp["K_inv"]
         )
+        # Start housing increase delay stock at zero
+        self.housing_increase_stock = 0.0
 
     def calculate_model_variables(self, houses, time):
         params   = self.config["model_parameters"]
@@ -37,7 +40,7 @@ class HousingModel:
         # Population (logistic growth)
         P0 = params["initial_pop"]
         r  = fp["pop_growth_rate"]
-        K  = params["pop_carrying_capacity"]
+        K  = fp["pop_carrying_capacity"]
         mv["population"] = K / (1 + ((K - P0)/P0) * np.exp(-r * time))
 
         # Housing basics
@@ -64,9 +67,8 @@ class HousingModel:
         mv["effect_of_financing_on_construction_rate"] = self.u.saturating_response(
             policies["financial_availability"], fp["K_fin"]
         )
-        mv["compliance_rate"]    = self.u.logistic(
-            policies["engagement_with_stakeholders"],
-            fp["k_eng"], fp["mid_eng"]
+        mv["compliance_rate"] = self.u.logistic(
+            policies["engagement_with_stakeholders"], fp["k_eng"], fp["mid_eng"]
         )
         mv["public_funding"]      = mv["compliance_rate"] * policies["tax_rate"] * houses * params["property_tax"]
         mv["funding_for_services"]      = mv["public_funding"] * (1 - policies["fraction_of_funding_for_transportation"])
@@ -96,13 +98,14 @@ class HousingModel:
         return mv
 
     def calculate_stock_derivatives(self, mv):
-        return mv["housing_stock_increase"] - mv["housing_stock_decrease"] #TODO: The housing stock increase needs delay
+        # Derivative based on delayed housing increase stock
+        return self.housing_increase_stock - mv["housing_stock_decrease"]
 
     def run_step(self, houses, time, dt):
-        # 1) Compute instantaneous model variables (without tax/inv effects)
+        # 1) Compute instantaneous variables
         mv = self.calculate_model_variables(houses, time)
 
-        # 2) Compute instantaneous targets for tax & inv effects
+        # 2) Tax & investment delays
         inst_tax_eff = self.u.normalized_exp_growth(
             self.config["model_policies"]["tax_rate"],
             self.config["response_function_parameters"]["elasticity_tax"]
@@ -111,16 +114,12 @@ class HousingModel:
             self.config["model_parameters"]["private_investment"],
             self.config["response_function_parameters"]["K_inv"]
         )
-
-        # 3) Update delay‐stocks: dS/dt = (Target – Stock)/τ
         self.tax_effect_stock += (inst_tax_eff - self.tax_effect_stock) / self.tax_delay * dt
         self.inv_effect_stock += (inst_inv_eff - self.inv_effect_stock) / self.inv_delay * dt
-
-        # 4) Inject delayed effects
         mv["effect_of_taxes_on_construction_rate"]           = self.tax_effect_stock
         mv["effect_of_private_investment_on_base_construction_rate"] = self.inv_effect_stock
 
-        # 5) Continue downstream: construction & stocks
+        # 3) Construction & housing flows
         mv["construction_rate_of_houses"] = (
             mv["effect_of_private_investment_on_base_construction_rate"]
             * self.config["model_parameters"]["base_construction_rate"]
@@ -132,10 +131,13 @@ class HousingModel:
             * mv["available_land_for_housing"]
         )
 
-        # 6) Housing stock flows
-        mv["housing_stock_increase"] = mv["construction_of_houses"]
+        # 4) Housing increase delay stock: first-order delay
+        self.housing_increase_stock += (mv["construction_of_houses"] - self.housing_increase_stock) / self.housing_delay * dt
+        mv["housing_stock_increase"] = self.housing_increase_stock
+
+        # 5) Demolition
         mv["housing_stock_decrease"] = self.config["model_parameters"]["housing_demolition_rate"] * houses
 
-        # 7) Derivative & return
+        # 6) Compute derivative
         housesD = self.calculate_stock_derivatives(mv)
         return housesD, mv
