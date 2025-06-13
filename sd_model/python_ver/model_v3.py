@@ -4,133 +4,138 @@ import numpy as np
 class HousingModel:
 
     def __init__(self, config_yaml_path: str):
-
-        # Initialize an instance of Utils to load the YAML file
+        # Initialize utils and load config
         self.u = Utils()
-        self.config_yaml_path = config_yaml_path
-        self.config = self.load_config_file()
+        self.config = self.u.load_yaml(config_yaml_path)
 
-    def load_config_file(self) -> dict:
-        """
-        Loads the configuration file specified by `self.config_yaml_path` using the utility's `load_yaml` method.
-        Returns:
-            dict: The contents of the configuration file as a dictionary.
-        """
-        
-        return self.u.load_yaml(self.config_yaml_path)
-    
+        # Read delay constants (time units)
+        delays = self.config.get("delays", {})
+        self.tax_delay = delays.get("tax_effect_delay", 1.0)
+        self.inv_delay = delays.get("private_investment_delay", 1.0)
 
-    def calculate_model_variables(self, houses, time) -> dict:
-        """
-        Calculates and returns a dictionary of model variables based on the current housing stock and model configuration.
-        This method computes a variety of intermediate and output variables used in the system dynamics housing model, including variables related to housing, financing, taxes, funding, transportation investment, land use, services investment, and construction. The calculations use model parameters and policies provided in the configuration, as well as utility functions for mathematical transformations.
-        Args:
-            houses (float or int): The current number of houses (housing stock) in the model.
-            time (float): The current time in the model, used for dynamic calculations.
-        Returns:
-            dict: A dictionary containing all computed model variables.
-        Notes:
-            - Some variables are marked as model outputs.
-            - Some calculations are noted as TODOs for future improvements (e.g., adding delay effects).
-            - Utility functions (self.u) are used for mathematical transformations such as elasticity, Michaelis-Menten, exponential growth, and logistic functions.
-        """
-    
-        # load config setup from the YAML file
-        parameters = self.config["model_parameters"]
+        # Initialize delay‐state stocks with their instantaneous values
+        params   = self.config["model_parameters"]
         policies = self.config["model_policies"]
-        funct_params = self.config["response_function_parameters"]
+        fp       = self.config["response_function_parameters"]
 
-        # Initialize an empty dictionary to store model variables
-        model_variables = {}
-        
-       
-       # Define population as a function of time
-        P0 = parameters["initial_pop"]
-        r  = funct_params["pop_growth_rate"]
-        K = funct_params["pop_carrying_capacity"]
-        population = K / (1 + ((K - P0)/P0) * np.exp(-r * time))
-        model_variables["population"] = population
+        # Instantaneous at t=0
+        self.tax_effect_stock = self.u.normalized_exp_growth(
+            policies["tax_rate"],
+            fp["elasticity_tax"]
+        )
+        self.inv_effect_stock = self.u.saturating_response(
+            params["private_investment"],
+            fp["K_inv"]
+        )
 
-        # housing variables
-        model_variables["households"] = model_variables["population"] / parameters["avg_household_size"]
-        model_variables["houses_to_households_ratio"] = houses / model_variables["households"] #NOTE: > 1 means there are more houses than households, < 1 means there are more households than houses
-        model_variables["housing_scarcity"] = max(0, (1 - model_variables["houses_to_households_ratio"])) #NOTE: Goes from 0 to 1, where 0 means no scarcity and 1 means maximum scarcity
-        model_variables["housing_slack"] = max(0, (model_variables["houses_to_households_ratio"] - 1))  # NOTE: > 1 means houses oversupply
-        model_variables["effect_of_housing_scarcity_on_cost"] = self.u.normalized_exp_growth(model_variables["housing_scarcity"], funct_params["scarcity_sensitivity"]) #NOTE: Goes from 0 to 1
-        model_variables["effect_of_housing_slack_on_cost"] = self.u.normalized_exp_growth(model_variables["housing_slack"], funct_params["slack_sensitivity"]) #NOTE: Goes from 0 to 1
-        delta = model_variables["effect_of_housing_scarcity_on_cost"] - model_variables["effect_of_housing_slack_on_cost"]
-        min_cost = 0.5 * parameters["avg_housing_cost"]
-        model_variables["cost_of_housing"] = max(
+    def calculate_model_variables(self, houses, time):
+        params   = self.config["model_parameters"]
+        policies = self.config["model_policies"]
+        fp       = self.config["response_function_parameters"]
+        mv = {}
+
+        # Population (logistic growth)
+        P0 = params["initial_pop"]
+        r  = fp["pop_growth_rate"]
+        K  = params["pop_carrying_capacity"]
+        mv["population"] = K / (1 + ((K - P0)/P0) * np.exp(-r * time))
+
+        # Housing basics
+        mv["households"] = mv["population"] / params["avg_household_size"]
+        mv["houses_to_households_ratio"] = houses / mv["households"]
+        mv["housing_scarcity"] = max(0, 1 - mv["houses_to_households_ratio"])
+        mv["housing_slack"]   = max(0, mv["houses_to_households_ratio"] - 1)
+
+        # Housing cost
+        e_scar = self.u.normalized_exp_growth(
+            mv["housing_scarcity"], fp["scarcity_sensitivity"]
+        )
+        e_slack = self.u.normalized_exp_growth(
+            mv["housing_slack"], fp["slack_sensitivity"]
+        )
+        delta = e_scar - e_slack
+        min_cost = 0.5 * params["avg_housing_cost"]
+        mv["cost_of_housing"] = max(
             min_cost,
-            (1 + delta) * parameters["avg_housing_cost"]
-        ) #NOTE: This is a model output
+            (1 + delta) * params["avg_housing_cost"]
+        )
 
-        # financing variables
-        model_variables["effect_of_financing_on_construction_rate"] = self.u.saturating_response(policies["financial_availability"], funct_params["K_fin"]) #NOTE: Goes from 0 to 1
+        # Financing & funding
+        mv["effect_of_financing_on_construction_rate"] = self.u.saturating_response(
+            policies["financial_availability"], fp["K_fin"]
+        )
+        mv["compliance_rate"]    = self.u.logistic(
+            policies["engagement_with_stakeholders"],
+            fp["k_eng"], fp["mid_eng"]
+        )
+        mv["public_funding"]      = mv["compliance_rate"] * policies["tax_rate"] * houses * params["property_tax"]
+        mv["funding_for_services"]      = mv["public_funding"] * (1 - policies["fraction_of_funding_for_transportation"])
+        mv["funding_for_transportation"] = mv["public_funding"] * policies["fraction_of_funding_for_transportation"]
 
-        # taxes variables
-        model_variables["effect_of_taxes_on_construction_rate"] = self.u.normalized_exp_growth(policies["tax_rate"], funct_params["elasticity_tax"]) # NOTE: Goes from 0 to 1
-        
-        # funding variables
-        model_variables["compliance_rate"] = self.u.logistic(policies["engagement_with_stakeholders"], funct_params["k_eng"], funct_params["mid_eng"]) #NOTE: Goes from 0 to 1
-        model_variables["public_funding"] = model_variables["compliance_rate"] * policies["tax_rate"] * houses * parameters["property_tax"]
-        model_variables["funding_for_services"] = model_variables["public_funding"] * (1 - policies["fraction_of_funding_for_transportation"])
-        model_variables["funding_for_transportation"] = model_variables["public_funding"] * policies["fraction_of_funding_for_transportation"]
+        # Transportation investments
+        mv["private_transportation_investment"] = mv["funding_for_transportation"] * (1 - policies["fraction_of_investment_in_public_transportation"])
+        mv["public_transportation_investment"]  = mv["funding_for_transportation"] * policies["fraction_of_investment_in_public_transportation"]
 
-        # transportation investment variables
-        model_variables["private_transportation_investment"] = model_variables["funding_for_transportation"] * (1 - policies["fraction_of_investment_in_public_transportation"])
-        model_variables["public_transportation_investment"] = model_variables["funding_for_transportation"] * policies["fraction_of_investment_in_public_transportation"]
+        # Land use & other vars (unchanged)
+        mv["density_index"] = (
+            mv["public_transportation_investment"] * policies["zoning_and_regulation"]
+        ) / mv["private_transportation_investment"] #TODO: Should this index be from 0 to 1? Check behavior of this variable
+        mv["time_in_traffic"] = 1.0 / mv["density_index"] #TODO: Should we include avg_time_in_traffic as a parameter that multiplies the density index?
+        mv["land_per_house"] = params["avg_land_per_house"] / mv["density_index"]
+        mv["total_land_used_for_housing"] = mv["land_per_house"] * houses
+        mv["fraction_of_total_occupied_land"] = mv["total_land_used_for_housing"] / params["total_land_area"]
+        mv["available_land_for_housing"] = 1 - mv["fraction_of_total_occupied_land"]
+        mv["city_sprawl"] = mv["fraction_of_total_occupied_land"]
 
-        # land use variables
-        model_variables["density_index"] = (model_variables["public_transportation_investment"] * policies["zoning_and_regulation"]) / model_variables["private_transportation_investment"] #TODO: Should this index be from 0 to 1? Check behavior of this variable
-        model_variables["time_in_traffic"] = 1.0 / model_variables["density_index"] #NOTE: This is a model output #TODO: Should we include avg_time_in_traffic as a parameter that multiplies the density index?
-        model_variables["land_per_house"] = parameters["avg_land_per_house"] / model_variables["density_index"]
-        model_variables["total_land_used_for_housing"] = model_variables["land_per_house"] * houses
-        model_variables["fraction_of_total_occupied_land"] = model_variables["total_land_used_for_housing"] / parameters["total_land_area"] #NOTE: Goes from 0 to 1
-        model_variables["available_land_for_housing"] = 1 - model_variables["fraction_of_total_occupied_land"] #NOTE: Goes from 0 to 1
-        model_variables["city_sprawl"] = model_variables["fraction_of_total_occupied_land"] #NOTE: This is a model output. Goes from 0 to 1
+        mv["services_demand"] = mv["fraction_of_total_occupied_land"]
+        mv["services_supply"] = self.u.saturating_response(
+            mv["funding_for_services"], fp['K_serv']
+        )
+        mv["access_to_services"] = mv["services_supply"] / mv["services_demand"]
 
-        # services investment variables 
-        model_variables["services_demand"] = model_variables["fraction_of_total_occupied_land"] #NOTE: Goes from 0 to 1
-        model_variables["services_supply"] = self.u.saturating_response(model_variables["funding_for_services"], funct_params['K_serv']) #NOTE: Goes from 0 to 1
-        model_variables["access_to_services"] = model_variables["services_supply"] / model_variables["services_demand"] #NOTE: This is a model output
+        return mv
 
-        # construction variables
-        model_variables["effect_of_private_investment_on_base_construction_rate"] = self.u.saturating_response(parameters["private_investment"], funct_params["K_inv"]) #NOTE: Goes from 0 to 1
-        model_variables["construction_rate_of_houses"] = (model_variables["effect_of_private_investment_on_base_construction_rate"] * parameters["base_construction_rate"] * model_variables["effect_of_financing_on_construction_rate"]) / model_variables["effect_of_taxes_on_construction_rate"] #TODO: effect of private investment and effect of tax rate needs delay. #NOTE: Goes from 0 to 1
-        model_variables["construction_of_houses"] = houses * model_variables["housing_scarcity"] * model_variables["construction_rate_of_houses"] * model_variables["available_land_for_housing"] # Should the housing_slack be included here?
+    def calculate_stock_derivatives(self, mv):
+        return mv["housing_stock_increase"] - mv["housing_stock_decrease"] #TODO: The housing stock increase needs delay
 
-        # Housing stock flows
-        model_variables["housing_stock_increase"] = model_variables["construction_of_houses"] #TODO: We have to add a delay effect here, the construction of houses takes time to be reflected in the housing stock
-        model_variables["housing_stock_decrease"] = parameters["housing_demolition_rate"] * houses
+    def run_step(self, houses, time, dt):
+        # 1) Compute instantaneous model variables (without tax/inv effects)
+        mv = self.calculate_model_variables(houses, time)
 
-        return model_variables
-    
-    
-    def calculate_stock_derivatives(self, model_variables: dict) -> float:
-        
-        # Calculate derivatives based on the model variables
-        housesD = model_variables["housing_stock_increase"] - model_variables["housing_stock_decrease"]
+        # 2) Compute instantaneous targets for tax & inv effects
+        inst_tax_eff = self.u.normalized_exp_growth(
+            self.config["model_policies"]["tax_rate"],
+            self.config["response_function_parameters"]["elasticity_tax"]
+        )
+        inst_inv_eff = self.u.saturating_response(
+            self.config["model_parameters"]["private_investment"],
+            self.config["response_function_parameters"]["K_inv"]
+        )
 
+        # 3) Update delay‐stocks: dS/dt = (Target – Stock)/τ
+        self.tax_effect_stock += (inst_tax_eff - self.tax_effect_stock) / self.tax_delay * dt
+        self.inv_effect_stock += (inst_inv_eff - self.inv_effect_stock) / self.inv_delay * dt
 
-        return housesD
-    
-    def run_step(self, houses, t):
-        """
-        Executes a single simulation step for the housing model.
-        Args:
-            houses (dict or custom object): The current state of the housing stock or model variables.
-            t (int or float): The current time step or simulation time.
-        Returns:
-            tuple: A tuple containing:
-                - housesD: The computed derivatives or changes in the housing stock.
-                - model_variables: The calculated model variables for this time step.
-        """
-       
-        model_variables = self.calculate_model_variables(houses, t)
-        housesD = self.calculate_stock_derivatives(model_variables)
+        # 4) Inject delayed effects
+        mv["effect_of_taxes_on_construction_rate"]           = self.tax_effect_stock
+        mv["effect_of_private_investment_on_base_construction_rate"] = self.inv_effect_stock
 
-        return housesD, model_variables
+        # 5) Continue downstream: construction & stocks
+        mv["construction_rate_of_houses"] = (
+            mv["effect_of_private_investment_on_base_construction_rate"]
+            * self.config["model_parameters"]["base_construction_rate"]
+            * mv["effect_of_financing_on_construction_rate"]
+        ) / mv["effect_of_taxes_on_construction_rate"]
+        mv["construction_of_houses"] = (
+            houses * mv["housing_scarcity"]
+            * mv["construction_rate_of_houses"]
+            * mv["available_land_for_housing"]
+        )
 
+        # 6) Housing stock flows
+        mv["housing_stock_increase"] = mv["construction_of_houses"]
+        mv["housing_stock_decrease"] = self.config["model_parameters"]["housing_demolition_rate"] * houses
 
-
+        # 7) Derivative & return
+        housesD = self.calculate_stock_derivatives(mv)
+        return housesD, mv
