@@ -37,7 +37,7 @@ class HousingModel:
         fp       = self.config["response_function_parameters"]
         mv = {}
 
-        # Population (logistic growth)
+        # Population (logistic growth) #TODO: Add mty projection
         P0 = params["initial_pop"]
         r  = fp["pop_growth_rate"]
         K  = fp["pop_carrying_capacity"]
