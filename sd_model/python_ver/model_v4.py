@@ -32,12 +32,14 @@ class HousingModel:
         self.housing_increase_stock = 0.0
 
     def calculate_model_variables(self, houses, time):
+
+        # Load model parameters
         params   = self.config["model_parameters"]
         policies = self.config["model_policies"]
         fp       = self.config["response_function_parameters"]
         mv = {}
 
-        # Population (logistic growth) #TODO: Add mty projection
+        # Population (logistic growth) #TODO: Add mty projection instead
         P0 = params["initial_pop"]
         r  = fp["pop_growth_rate"]
         K  = fp["pop_carrying_capacity"]
@@ -50,13 +52,13 @@ class HousingModel:
         mv["housing_slack"]   = max(0, mv["houses_to_households_ratio"] - 1)
 
         # Housing cost
-        e_scar = self.u.normalized_exp_growth(
+        mv["e_scar"] = self.u.normalized_exp_growth(
             mv["housing_scarcity"], fp["scarcity_sensitivity"]
         )
-        e_slack = self.u.normalized_exp_growth(
+        mv["e_slack"] = self.u.normalized_exp_growth(
             mv["housing_slack"], fp["slack_sensitivity"]
         )
-        delta = e_scar - e_slack
+        delta = mv["e_scar"] - mv["e_slack"]
         min_cost = 0.5 * params["avg_housing_cost"]
         mv["cost_of_housing"] = max(
             min_cost,
@@ -78,17 +80,30 @@ class HousingModel:
         mv["private_transportation_investment"] = mv["funding_for_transportation"] * (1 - policies["fraction_of_investment_in_public_transportation"])
         mv["public_transportation_investment"]  = mv["funding_for_transportation"] * policies["fraction_of_investment_in_public_transportation"]
 
-        # Land use & other vars (unchanged)
-        mv["density_index"] = (
-            mv["public_transportation_investment"] * policies["zoning_and_regulation"]
-        ) / mv["private_transportation_investment"] #TODO: Should this index be from 0 to 1? Check behavior of this variable
-        mv["time_in_traffic"] = 1.0 / mv["density_index"] #TODO: Should we include avg_time_in_traffic as a parameter that multiplies the density index?
-        mv["land_per_house"] = params["avg_land_per_house"] / mv["density_index"]
+        # Land use vars
+        mv["effect_pub"]  = self.u.saturating_response(
+            mv["public_transportation_investment"], fp["K_pub"]
+        )
+        
+        mv["effect_priv"] = 1 - self.u.saturating_response(
+            mv["private_transportation_investment"], fp["K_priv"]
+        )
+
+        Z = policies["zoning_and_regulation"]
+        mv["proximity_index"] = Z * mv["effect_pub"] + (1 - Z) * mv["effect_priv"]
+        # mv["proximity_index"] = (mv["effect_pub"]  ** Z) * (mv["effect_priv"]** (1 - Z)) #NOTE: Geometric option
+        mv["time_in_traffic"] = 1.0 / mv["proximity_index"]
+    
+        min_land = params["min_land_per_house"]
+        max_land = params["max_land_per_house"]
+        pi = mv["proximity_index"]
+        mv["land_per_house"] = pi * min_land + (1 - pi) * max_land
         mv["total_land_used_for_housing"] = mv["land_per_house"] * houses
         mv["fraction_of_total_occupied_land"] = mv["total_land_used_for_housing"] / params["total_land_area"]
         mv["available_land_for_housing"] = 1 - mv["fraction_of_total_occupied_land"]
         mv["city_sprawl"] = mv["fraction_of_total_occupied_land"]
 
+        # Services vars
         mv["services_demand"] = mv["fraction_of_total_occupied_land"]
         mv["services_supply"] = self.u.saturating_response(
             mv["funding_for_services"], fp['K_serv']
