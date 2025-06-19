@@ -31,6 +31,9 @@ class HousingModel:
         # Start housing increase delay stock at zero
         self.housing_increase_stock = 0.0
 
+        # Initialize eps constant to avoid division by zero
+        self.eps = 1e-6
+
     def calculate_model_variables(self, houses, time):
 
         # Load model parameters
@@ -104,12 +107,15 @@ class HousingModel:
         mv["city_sprawl"] = mv["fraction_of_total_occupied_land"]
 
         # Services vars
-        mv["services_demand"] = mv["fraction_of_total_occupied_land"]
+        occ_land = mv["total_land_used_for_housing"]
+        mv["demand_density"] = mv["households"] / max(occ_land, self.eps)
+        mv["services_demand"] = self.u.saturating_response(mv["demand_density"], fp["K_servd"])
         mv["services_supply"] = self.u.saturating_response(
             mv["funding_for_services"], fp['K_serv']
         )
-        mv["access_to_services"] = mv["services_supply"] / mv["services_demand"]
-
+        raw_ratio = mv["services_supply"] / (mv["services_demand"] + self.eps)
+        mv["access_to_services"] = min(raw_ratio, 1.0)
+        
         return mv
 
     def calculate_stock_derivatives(self, mv):
