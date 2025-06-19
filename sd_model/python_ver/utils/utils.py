@@ -18,7 +18,19 @@ class Utils:
         return x**elasticity
 
     def saturating_response(self, x: float, half_sat: float) -> float:
-        """Saturating (Michaelis-Menten type) response: x / (half_sat + x). goes from 0 to 1."""
+        """
+        Compute a saturating (Michaelis-Menten type) response.
+
+        This function returns a value between 0 and 1, following the formula:
+            response = x / (half_sat + x)
+
+        The `half_sat` parameter determines the input value at which the response reaches half of its maximum (0.5).
+        Larger values of `half_sat` cause the response to saturate more slowly.
+
+        :param x: Input value.
+        :param half_sat: Half-saturation constant.
+        :return: Saturating response between 0 and 1.
+        """
         return x/(half_sat + x) if (half_sat + x) > 0 else 0
 
     def exp_decay(self, x: float, sensitivity: float) -> float:
