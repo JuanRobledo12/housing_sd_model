@@ -100,8 +100,8 @@ class HousingModel:
         # mv["proximity_index"] = (mv["effect_pub"]  ** Z) * (mv["effect_priv"]** (1 - Z)) #NOTE: Geometric option
         mv["time_in_traffic"] = 1.0 / mv["proximity_index"]
     
-        min_land = params["min_land_per_house"]
-        max_land = params["max_land_per_house"]
+        min_land = fp["min_land_per_house"]
+        max_land = fp["max_land_per_house"]
         pi = mv["proximity_index"]
         mv["land_per_house"] = pi * min_land + (1 - pi) * max_land
         mv["total_land_used_for_housing"] = mv["land_per_house"] * houses
