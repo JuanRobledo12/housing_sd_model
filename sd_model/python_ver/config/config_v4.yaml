@@ -6,7 +6,7 @@ simulation_parameters:
 model_parameters:
   initial_pop: 100 # Initial population in the model
   avg_household_size: 4 # Number of people per household
-  private_investment: 100  # Amount of private investment in the model
+  private_investment_base: 100  # Amount of initial private investment in the model
   base_construction_rate: 0.5 # Base rate of construction in the model it should be 0 to 1
   total_land_area: 1000 # Total land area in the model
   housing_demolition_rate: 0.3 # Rate of housing demolition in the model it should be 0 to 1
@@ -26,7 +26,7 @@ response_function_parameters:
   k_eng:                5.0     # stakeholder engagement steepness
   mid_eng:              0.5     # stakeholder engagement midpoint
   land_per_house_base:  0.0     # computed as total_land_area/initial_houses
-  K_inv:                0.5     # half‐saturation for private investment
+  K_inv:                70     # half‐saturation for private investment
   K_serv:              200     # half‐saturation for service supply
   pop_growth_rate:      0.05    # population growth rate per year
   pop_carrying_capacity: 5000 # maximum population capacity of the model
@@ -34,6 +34,7 @@ response_function_parameters:
   K_priv:              20     # half‐saturation for private transportation investment
   K_servd:             10    # half‐saturation for service demand
   dense_city_density: 10.5    # Standard density for a dense city in households/km^2
+  inv_scarcity_sensitivity: 2.0 # controls how sharply private investment rises with scarcity
 
 
 model_policies:
