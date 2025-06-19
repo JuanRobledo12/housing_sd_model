@@ -1,6 +1,6 @@
 simulation_parameters:
   houses_init: 10 # Initial number of houses in the model
-  sim_time: 10 # Simulation time in years
+  sim_time: 50 # Simulation time in years
   time_step: 0.1 # Time step for the simulation in years
 
 model_parameters:
@@ -13,23 +13,26 @@ model_parameters:
   property_tax: 100 # amount of money to be paid as property tax in the model
   avg_land_per_house: 5 # Average land per house in the model
   avg_housing_cost: 200 # Average cost of housing in the model
+  min_land_per_house: 0.05    # e.g. at full proximity (dense city)
+  max_land_per_house: 0.20    # e.g. at zero proximity (sprawling city)
   # zoning_mult:          2.0     # zoning max density multiplier
   
   
 response_function_parameters:
   scarcity_sensitivity: 0.5     # controls how sharply cost rises with scarcity
   slack_sensitivity: 0.3     # controls how sharply cost falls with slack
-  K_fin:                0.5     # half‐saturation for financing effect, the higher the value it will saturate faster
+  K_fin:                0.5     # half‐saturation for financing effect
   elasticity_tax:       3.0     # tax→construction sensitivity
   k_eng:                5.0     # stakeholder engagement steepness
   mid_eng:              0.5     # stakeholder engagement midpoint
   land_per_house_base:  0.0     # computed as total_land_area/initial_houses
   K_inv:                0.5     # half‐saturation for private investment
-  K_serv:              0.5     # half‐saturation for service supply
+  K_serv:              200     # half‐saturation for service supply
   pop_growth_rate:      0.05    # population growth rate per year
   pop_carrying_capacity: 5000 # maximum population capacity of the model
-  K_pub:               0.5     # half‐saturation for public transportation investment
-  K_priv:              0.5     # half‐saturation for private transportation investment
+  K_pub:               120    # half‐saturation for public transportation investment
+  K_priv:              20     # half‐saturation for private transportation investment
+  K_servd:             10    # half‐saturation for service demand
 
 model_policies:
   financial_availability:       0.8   # 0–1 index of credit availability
