@@ -25,7 +25,7 @@ class HousingModel:
             fp["elasticity_tax"]
         )
         self.inv_effect_stock = self.u.saturating_response(
-            params["private_investment"],
+            params["private_investment_base"],
             fp["K_inv"]
         )
         # Start housing increase delay stock at zero
@@ -63,7 +63,7 @@ class HousingModel:
         )
         delta = mv["e_scar"] - mv["e_slack"]
         min_cost = 0.5 * params["avg_housing_cost"]
-        mv["cost_of_housing"] = max(
+        mv["housing_cost"] = max(
             min_cost,
             (1 + delta) * params["avg_housing_cost"]
         )
@@ -72,6 +72,9 @@ class HousingModel:
         mv["effect_of_financing_on_construction_rate"] = self.u.saturating_response(
             policies["financial_availability"], fp["K_fin"] 
         ) #NOTE: This will output a constant value since the effect depends on constant parameters and policies
+        base_inv = params["private_investment_base"]
+        inv_scarcity_sens = fp["inv_scarcity_sensitivity"]
+        mv["private_investment"] = base_inv * self.u.power_elasticity(mv["housing_scarcity"], inv_scarcity_sens)
         mv["compliance_rate"] = self.u.logistic(
             policies["engagement_with_stakeholders"], fp["k_eng"], fp["mid_eng"]
         )
@@ -132,14 +135,14 @@ class HousingModel:
             self.config["response_function_parameters"]["elasticity_tax"]
         )
         inst_inv_eff = self.u.saturating_response(
-            self.config["model_parameters"]["private_investment"],
+            mv["private_investment"],
             self.config["response_function_parameters"]["K_inv"]
         )
         self.tax_effect_stock += (inst_tax_eff - self.tax_effect_stock) / self.tax_delay * dt
         self.inv_effect_stock += (inst_inv_eff - self.inv_effect_stock) / self.inv_delay * dt
 
-        #NOTE: These will output a constant value since the effects depend on constant parameters and policies
-        mv["effect_of_taxes_on_construction_rate"]           = self.tax_effect_stock
+        
+        mv["effect_of_taxes_on_construction_rate"]           = self.tax_effect_stock #NOTE: This will output a constant value since the effects depend on constant parameters and policies
         mv["effect_of_private_investment_on_base_construction_rate"] = self.inv_effect_stock
 
         # 3) Construction & housing flows
