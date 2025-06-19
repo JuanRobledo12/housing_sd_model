@@ -70,8 +70,8 @@ class HousingModel:
 
         # Financing & funding
         mv["effect_of_financing_on_construction_rate"] = self.u.saturating_response(
-            policies["financial_availability"], fp["K_fin"]
-        )
+            policies["financial_availability"], fp["K_fin"] 
+        ) #NOTE: This will output a constant value since the effect depends on constant parameters and policies
         mv["compliance_rate"] = self.u.logistic(
             policies["engagement_with_stakeholders"], fp["k_eng"], fp["mid_eng"]
         )
@@ -104,12 +104,12 @@ class HousingModel:
         mv["total_land_used_for_housing"] = mv["land_per_house"] * houses
         mv["fraction_of_total_occupied_land"] = mv["total_land_used_for_housing"] / params["total_land_area"]
         mv["available_land_for_housing"] = 1 - mv["fraction_of_total_occupied_land"]
-        mv["city_sprawl"] = mv["fraction_of_total_occupied_land"]
+        mv["hh_per_km2"] = mv["households"] / max(mv["total_land_used_for_housing"], self.eps)
+        dense_density = fp["dense_city_density"]
+        mv["city_sprawl"] = dense_density / max(mv["hh_per_km2"], self.eps)
 
         # Services vars
-        occ_land = mv["total_land_used_for_housing"]
-        mv["demand_density"] = mv["households"] / max(occ_land, self.eps)
-        mv["services_demand"] = self.u.saturating_response(mv["demand_density"], fp["K_servd"])
+        mv["services_demand"] = self.u.saturating_response(mv["hh_per_km2"], fp["K_servd"])
         mv["services_supply"] = self.u.saturating_response(
             mv["funding_for_services"], fp['K_serv']
         )
@@ -137,6 +137,8 @@ class HousingModel:
         )
         self.tax_effect_stock += (inst_tax_eff - self.tax_effect_stock) / self.tax_delay * dt
         self.inv_effect_stock += (inst_inv_eff - self.inv_effect_stock) / self.inv_delay * dt
+
+        #NOTE: These will output a constant value since the effects depend on constant parameters and policies
         mv["effect_of_taxes_on_construction_rate"]           = self.tax_effect_stock
         mv["effect_of_private_investment_on_base_construction_rate"] = self.inv_effect_stock
 
