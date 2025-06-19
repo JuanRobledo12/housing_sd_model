@@ -33,6 +33,8 @@ response_function_parameters:
   K_pub:               120    # half‐saturation for public transportation investment
   K_priv:              20     # half‐saturation for private transportation investment
   K_servd:             10    # half‐saturation for service demand
+  dense_city_density: 10.5    # Standard density for a dense city in households/km^2
+
 
 model_policies:
   financial_availability:       0.8   # 0–1 index of credit availability
