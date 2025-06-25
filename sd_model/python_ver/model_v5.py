@@ -14,6 +14,7 @@ class HousingModel:
         self.inv_delay     = delays.get("private_investment_delay", 1.5)
         self.housing_delay = delays.get("housing_stock_delay", 3.0)
         self.sprawl_delay  = delays.get("sprawl_delay", 3.0)
+        self.land_delay = delays.get("land_per_house_delay", 2.0)
 
         # 3) Shortcut to sections of config
         sim_p  = self.config["simulation_parameters"]
@@ -32,11 +33,14 @@ class HousingModel:
         # 6) Initial sprawl stock from initial households & avg land per house
         houses0     = sim_p["houses_init"]
         hh0         = params["initial_pop"] / params["avg_household_size"]
-        avg_lph0    = params["avg_land_per_house"]
-        total_land0 = avg_lph0 * houses0
+        init_lph0    = params["initial_land_per_house"]
+        total_land0 = init_lph0 * houses0
         hhpkm2_0    = hh0 / max(total_land0, self.eps)
         dense       = fp["dense_city_density"]
         self.sprawl_stock = dense / hhpkm2_0
+
+        # 7) Initialize land‐per‐house stock
+        self.land_per_house_stock = params["initial_land_per_house"]
 
     def calculate_model_variables(self, houses, time):
         """Compute all the ‘instantaneous’ variables *except* geometry & sprawl."""
@@ -61,8 +65,8 @@ class HousingModel:
         mv["e_scar"] = self.u.normalized_exp_growth(mv["housing_scarcity"], fp["scarcity_sensitivity"])
         mv["e_slack"] = self.u.normalized_exp_growth(mv["housing_slack"],    fp["slack_sensitivity"])
         delta = mv["e_scar"] - mv["e_slack"]
-        min_cost = 0.5 * params["avg_housing_cost"]
-        mv["housing_cost"] = max(min_cost, (1 + delta) * params["avg_housing_cost"])
+        min_cost = 0.5 * params["initial_housing_cost"]
+        mv["housing_cost"] = max(min_cost, (1 + delta) * params["initial_housing_cost"])
 
         # Financing & private investment
         mv["effect_of_financing_on_construction_rate"] = self.u.saturating_response(
@@ -123,9 +127,9 @@ class HousingModel:
         fp     = self.config["response_function_parameters"]
         pol    = self.config["model_policies"]
 
-        # a) Desired sprawl from current households & avg land
+        # a) Desired sprawl from current households & land per house stock
         hh    = mv["households"]
-        hhpkm2 = hh / max(params["avg_land_per_house"] * houses, self.eps) #TODO: is there a way that this is caluclated with land_per_house instead?
+        hhpkm2 = hh / max(self.land_per_house_stock * houses, self.eps)
         desired_sprawl = fp["dense_city_density"] / max(hhpkm2, self.eps) # The sprawl that our stock should aim for
 
         # b) Sprawl as a stock
@@ -141,16 +145,24 @@ class HousingModel:
         inst_prox = max(0.01, mv["base_prox"] * (1 - (alpha * norm_sp)))
         mv["proximity_index"] = inst_prox
         mv["time_in_traffic"] = 1.0 / (inst_prox + self.eps)
+        
+        # d) Instantaneous land_per_house from proximity
+        inst_lph = inst_prox * fp["min_land_per_house"] \
+                + (1 - inst_prox) * fp["max_land_per_house"]
+        mv["land_per_house"] = inst_lph
+        
+        # e) Now *delay* your land stock toward that
+        self.land_per_house_stock += (inst_lph - self.land_per_house_stock) \
+                                    / self.land_delay * dt
 
-        # d) Land‐use metrics from new proximity
-        min_lnd, max_lnd = fp["min_land_per_house"], fp["max_land_per_house"]
-        mv["land_per_house"] = inst_prox * min_lnd + (1 - inst_prox) * max_lnd
-        mv["total_land_used_for_housing"]   = mv["land_per_house"] * houses
+        # f) Use the *updated* land_per_house_stock for everything else
+        mv["total_land_used_for_housing"]    = self.land_per_house_stock * houses
         mv["fraction_of_total_occupied_land"] = mv["total_land_used_for_housing"] / params["total_land_area"]
-        mv["available_land_for_housing"]    = max(0.0, 1 - mv["fraction_of_total_occupied_land"])
-        mv["hh_per_km2"] = hh / max(mv["total_land_used_for_housing"], self.eps)
+        mv["available_land_for_housing"]     = max(0.0, 1 - mv["fraction_of_total_occupied_land"])
+        mv["hh_per_km2"]                     = mv["households"] / max(mv["total_land_used_for_housing"], self.eps)
 
-        # e) Services access
+
+        # g) Services access
         mv["services_demand"] = self.u.saturating_response(mv["hh_per_km2"], fp["K_servd"])
         mv["services_supply"] = self.u.saturating_response(mv["funding_for_services"], fp["K_serv"])
         mv["access_to_services"] = min(mv["services_supply"] / (mv["services_demand"] + self.eps), 1.0)
