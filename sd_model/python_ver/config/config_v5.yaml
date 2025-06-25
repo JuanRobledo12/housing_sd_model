@@ -1,0 +1,53 @@
+simulation_parameters:
+  houses_init: 10 # Initial number of houses in the model
+  sim_time: 50 # Simulation time in years
+  time_step: 0.1 # Time step for the simulation in years
+
+model_parameters:
+  initial_pop: 100 # Initial population in the model
+  avg_household_size: 4 # Number of people per household
+  private_investment_base: 100  # Amount of initial private investment in the model
+  base_construction_rate: 0.5 # Base rate of construction in the model it should be 0 to 1
+  total_land_area: 1000 # Total land area in the model
+  housing_demolition_rate: 0.1 # Rate of housing demolition in the model it should be 0 to 1
+  property_tax: 100 # amount of money to be paid as property tax in the model
+  initial_land_per_house: 5 # Average land per house in the model
+  initial_housing_cost: 200 # Average cost of housing in the model
+  
+  
+response_function_parameters:
+  scarcity_sensitivity: 0.6     # controls how sharply cost rises with scarcity
+  slack_sensitivity: 0.4     # controls how sharply cost falls with slack
+  K_fin:                0.4     # half‐saturation for financing effect
+  elasticity_tax:       3.0     # tax→construction sensitivity
+  k_eng:                6.0     # stakeholder engagement steepness
+  mid_eng:              0.5     # stakeholder engagement midpoint
+  K_inv:                70     # half‐saturation for private investment
+  K_serv:              200     # half‐saturation for service supply
+  pop_growth_rate:      0.01    # population growth rate per year
+  pop_carrying_capacity: 5000 # maximum population capacity of the model
+  K_pub:               20    # half‐saturation for public transportation investment
+  K_priv:              120     # half‐saturation for private transportation investment
+  K_servd:             10    # half‐saturation for service demand
+  dense_city_density: 15    # Standard density for a dense city in households/km^2
+  inv_scarcity_sensitivity: 2.0 # controls how sharply private investment rises with scarcity
+  min_land_per_house: 0.05    # e.g. at full proximity (dense city)
+  max_land_per_house: 0.20    # e.g. at zero proximity (sprawling city)
+  max_expected_sprawl: 100.0
+  sprawl_penalty_sensitivity: 0.7
+
+
+model_policies:
+  financial_availability:       0.5   # 0–1 index of credit availability
+  tax_rate:                     0.2   # 0–1 fraction (e.g. 20%)
+  fraction_of_funding_for_transportation: 0.7 # 0–1 fraction
+  zoning_and_regulation:        0.7   # 0–1 index
+  fraction_of_investment_in_public_transportation: 0.6 # 0–1 fraction
+  engagement_with_stakeholders: 0.5   # 0–1 index
+
+delays:
+  tax_effect_delay:          2.0   # time units to “ramp up” tax effect
+  private_investment_delay:  1.5   # likewise for private‐investment effect
+  housing_stock_delay:        3.0   # likewise for housing stock effect
+  sprawl_delay:              3.0   # likewise for sprawl effect
+  land_per_house_delay: 2.0    # how quickly actual land_per_house adjusts
