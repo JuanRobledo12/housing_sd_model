@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
-from model_v4 import HousingModel
+from model_v5 import HousingModel
 
 # Set up paths
 DIR_PATH = os.path.dirname(os.path.realpath(__file__))
@@ -12,7 +12,7 @@ FIGURES_DIR_PATH = os.path.join(OUTPUT_DIR_PATH, "figures")
 BASELINE_SIM_RESULTS_DIR_PATH = os.path.join(OUTPUT_DIR_PATH, "baseline_sim_results")
 
 # Load config file
-config_file_name = "config_high_scarcity"
+config_file_name = "config_v5"
 CONFIG_FILE_PATH = os.path.join(CONFIG_DIR_PATH, f"{config_file_name}.yaml")
 
 # Initialize the model
