@@ -1,0 +1,54 @@
+simulation_parameters:
+  houses_init: 328_908      # inhabited private dwellings, Censo 2020 :contentReference[oaicite:0]{index=0}
+  sim_time: 30 # Simulation time in years
+  time_step: 0.1 # Time step for the simulation in years
+
+model_parameters:
+  initial_pop: 1_142_994    # population of the municipality, Censo 2020 :contentReference[oaicite:1]{index=1}
+  avg_household_size: 3.5   # occupants per dwelling, Nuevo León average 2020 :contentReference[oaicite:2]{index=2}
+  private_investment_base: 30_500_000_000  # ≈20 318 new units × 1.5 M MXN median price :contentReference[oaicite:3]{index=3}
+  base_construction_rate: 0.012  # 20 318 new / 1 655 256 existing dwellings in NL 2023 → 1.2 % :contentReference[oaicite:4]{index=4}
+  total_land_area: 969.7    # km², official INEGI figure :contentReference[oaicite:5]{index=5}
+  housing_demolition_rate: 0.002 # no municipal series; uses intl. 0.2 % engineering norm (see note)
+  property_tax_per_capita: 1043       # 2 ‰ annual predial rate in the Ley de Hacienda N.L. :contentReference[oaicite:6]{index=6}
+  initial_land_per_house: 0.00016   # km² typical single-family lot in local developments :contentReference[oaicite:7]{index=7}
+  initial_annual_leasing_cost: 294_420 # MXN per year: 24_535 MXN per month median rent in NL * 12 months
+
+model_policies:
+  financial_availability: 0.70
+  tax_rate: 0.002
+  fraction_of_funding_for_transportation: 0.14   # share of municipal budget for mobility/transport infrastructure (14%)
+  zoning_and_regulation: 0.40
+  fraction_of_investment_in_public_transportation: 0.20 # of mobility investment, 20% goes to public transit
+  engagement_with_stakeholders: 0.64  # data from EL ECONOMISTA
+
+response_function_parameters:
+  scarcity_sensitivity: 0.6     # controls how sharply cost rises with scarcity
+  slack_sensitivity: 0.4     # controls how sharply cost falls with slack
+  K_fin:                0.4     # half‐saturation for financing effect
+  elasticity_tax:       3.0     # tax→construction sensitivity
+  k_eng:                6.0     # stakeholder engagement steepness
+  mid_eng:              0.5     # stakeholder engagement midpoint
+  K_inv:                70     # half‐saturation for private investment
+  K_serv:              200     # half‐saturation for service supply
+  pop_growth_rate:      0.01    # population growth rate per year
+  pop_carrying_capacity: 5000 # maximum population capacity of the model
+  public_trns_inv_elasticity: 1
+  K_priv:              120     # half‐saturation for private transportation investment
+  K_servd:             10    # half‐saturation for service demand
+  dense_city_density: 15    # Standard density for a dense city in households/km^2
+  inv_scarcity_sensitivity: 2.0 # controls how sharply private investment rises with scarcity
+  min_land_per_house: 10    # e.g. at full proximity (dense city)
+  max_land_per_house: 100    # e.g. at zero proximity (sprawling city)
+  max_expected_sprawl: 1000
+  sprawl_penalty_sensitivity: 0.7
+  inv_cost_sensitivity:  2.0   # elasticity of private investment to housing cost
+  pop_emigration_sensitivity: 0.7  # rate at which population leaves per unit cost‐over‐initial
+
+delays:
+  tax_effect_delay:          2.0   # time units to “ramp up” tax effect
+  private_investment_delay:  1.5   # likewise for private‐investment effect
+  housing_stock_delay:        2.0   # likewise for housing stock effect
+  sprawl_delay:              2.0   # likewise for sprawl effect
+  land_per_house_delay: 2.0    # how quickly actual land_per_house adjusts
+  pop_delay: 2.0
