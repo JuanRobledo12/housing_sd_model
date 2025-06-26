@@ -194,22 +194,37 @@ class HousingModel:
         mv["access_to_services"] = min(mv["services_supply"] / (mv["services_demand"] + self.eps), 1.0)
 
         # 6) Construction & flows
-        # TODO: Modify this
-        mv["construction_rate_of_houses"] = (
+
+        # 6a) Compute the base (pre-tax) construction **rate** [0,1]:
+        base_rate = (
             mv["effect_of_private_investment_on_base_construction_rate"]
             * params["base_construction_rate"]
             * mv["effect_of_financing_on_construction_rate"]
-        ) / mv["effect_of_taxes_on_construction_rate"]
+        )
 
-        
-        # TODO: Modify this
+        # 6b) Compute a tax *multiplier* so that higher taxes → lower rate:
+        #     tax_eff ∈ [0,1] → tax_mul ∈ [1,0]
+        tax_eff       = mv["effect_of_taxes_on_construction_rate"]
+        tax_multiplier = 1.0 - tax_eff
+
+        # 6c) Apply tax multiplier, clamp to [0,1]:
+        mv["construction_rate_of_houses"] = base_rate * tax_multiplier
+        mv["construction_rate_of_houses"] = min(max(mv["construction_rate_of_houses"], 0.0), 1.0)
+
+        # 6d) Prevent scarcity from zeroing out construction:
+        #     pick a small floor (e.g. 0.1) so that even at zero scarcity
+        #     you still get 10% of the capacity.
+        min_scar = fp.get("min_scarcity_floor", 0.1)
+        scarcity_factor = max(min_scar, mv["housing_scarcity"])
+
+        # 6e) Finally compute flow of new houses:
         mv["construction_of_houses"] = (
             houses
-            * mv["housing_scarcity"]
+            * scarcity_factor
             * mv["construction_rate_of_houses"]
             * mv["available_land_for_housing"]
         )
-
+        
         # 7) Housing-increase delay
         self.housing_increase_stock += (
             mv["construction_of_houses"] - self.housing_increase_stock
