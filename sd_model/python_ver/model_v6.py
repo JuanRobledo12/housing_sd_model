@@ -82,29 +82,6 @@ class HousingModel:
             cost_ratio, fp["inv_cost_sensitivity"]
         )
 
-        # Stakeholder compliance → public funding
-        mv["compliance_rate"] = self.u.logistic(
-            pol["engagement_with_stakeholders"], fp["k_eng"], fp["mid_eng"]
-        )
-        mv["public_funding"] = (
-            mv["compliance_rate"]
-            * pol["tax_rate"]
-            * houses
-            * params["property_tax"]
-        )
-        mv["funding_for_services"]      = mv["public_funding"] * (1 - pol["fraction_of_funding_for_transportation"])
-        mv["funding_for_transportation"] = mv["public_funding"] * pol["fraction_of_funding_for_transportation"]
-
-        # Transportation investments
-        mv["public_transportation_investment"]  = mv["funding_for_transportation"] * pol["fraction_of_investment_in_public_transportation"]
-        mv["private_transportation_investment"] = mv["funding_for_transportation"] * (1 - pol["fraction_of_investment_in_public_transportation"])
-
-        # Raw transport effects
-        mv["effect_pub"]  = self.u.normalized_power_elasticity(mv["public_transportation_investment"], 
-                                                               fp["public_trns_inv_elasticity"],
-                                                               min_val=1.0,
-                                                               max_val=5.0)
-        mv["effect_priv"] = 1 - self.u.saturating_response(mv["private_transportation_investment"], fp["K_priv"])
 
         return mv
 
@@ -116,11 +93,12 @@ class HousingModel:
         # 1) Instantaneous variables
         mv = self.calculate_model_variables(houses, time)
 
-        # 2) Update housing cost stock (first‐order delay)
+        # 2) Update housing cost stock (first‐order delay) and rent_cost
         self.housing_cost_stock += (
             mv["housing_cost_target"] - self.housing_cost_stock
         ) / self.housing_delay * dt
         mv["housing_cost"] = self.housing_cost_stock
+        mv["rent_cost"] = self.housing_cost_stock * self.config["model_parameters"]["rent_to_housing_cost_ratio"]
 
         # 3) Tax & investment delays
         inst_tax_eff = self.u.normalized_exp_growth(
@@ -148,8 +126,32 @@ class HousingModel:
         self.population_stock += (pop_flow_in - pop_flow_out) * dt
         mv["population"] = self.population_stock
         
-        # 5) Geometry & sprawl‐stock update
+        # 5) Stakeholder compliance → public funding
         pol    = self.config["model_policies"]
+        mv["compliance_rate"] = self.u.logistic(
+            pol["engagement_with_stakeholders"], fp["k_eng"], fp["mid_eng"]
+        )
+        
+        mv["property_tax"] = pol["tax_rate"] * mv["housing_cost"]
+        
+        mv["public_funding"] = (
+            mv["compliance_rate"]
+            * houses
+            * mv["property_tax"]
+        )
+        mv["funding_for_services"]      = mv["public_funding"] * (1 - pol["fraction_of_funding_for_transportation"])
+        mv["funding_for_transportation"] = mv["public_funding"] * pol["fraction_of_funding_for_transportation"]
+
+        # Transportation investments
+        mv["public_transportation_investment"]  = mv["funding_for_transportation"] * pol["fraction_of_investment_in_public_transportation"]
+        mv["private_transportation_investment"] = mv["funding_for_transportation"] * (1 - pol["fraction_of_investment_in_public_transportation"])
+
+        # Raw transport effects
+        mv["effect_pub"]  = self.u.saturating_response(mv["public_transportation_investment"], fp["K_pub"])
+        mv["effect_priv"] = 1 - self.u.saturating_response(mv["private_transportation_investment"], fp["K_priv"])
+
+
+        # 5) Geometry & sprawl‐stock update
 
         # a) Desired sprawl from current households & land per house stock
         hh    = mv["households"]
@@ -192,12 +194,15 @@ class HousingModel:
         mv["access_to_services"] = min(mv["services_supply"] / (mv["services_demand"] + self.eps), 1.0)
 
         # 6) Construction & flows
+        # TODO: Modify this
         mv["construction_rate_of_houses"] = (
             mv["effect_of_private_investment_on_base_construction_rate"]
             * params["base_construction_rate"]
             * mv["effect_of_financing_on_construction_rate"]
         ) / mv["effect_of_taxes_on_construction_rate"]
 
+        
+        # TODO: Modify this
         mv["construction_of_houses"] = (
             houses
             * mv["housing_scarcity"]
