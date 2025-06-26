@@ -15,6 +15,7 @@ class HousingModel:
         self.housing_delay = delays.get("housing_stock_delay", 3.0)
         self.sprawl_delay  = delays.get("sprawl_delay", 3.0)
         self.land_delay = delays.get("land_per_house_delay", 2.0)
+        self.pop_delay     = delays.get("pop_delay", 2.0)
 
         # 3) Shortcut to sections of config
         sim_p  = self.config["simulation_parameters"]
@@ -30,16 +31,20 @@ class HousingModel:
         self.inv_effect_stock       = self.u.saturating_response(params["private_investment_base"], fp["K_inv"])
         self.housing_increase_stock = 0.0
 
-        # 6) Initial sprawl stock from initial households & avg land per house
-        houses0     = sim_p["houses_init"]
-        hh0         = params["initial_pop"] / params["avg_household_size"]
+        # 6) New stocks: housing_cost & population
+        self.housing_cost_stock = params["initial_housing_cost"]
+        self.population_stock   = params["initial_pop"]
+
+        # 7) Initial sprawl stock from initial households & avg land per house
+        houses0      = sim_p["houses_init"]
+        hh0          = params["initial_pop"] / params["avg_household_size"]
         init_lph0    = params["initial_land_per_house"]
-        total_land0 = init_lph0 * houses0
-        hhpkm2_0    = hh0 / max(total_land0, self.eps)
-        dense       = fp["dense_city_density"]
+        total_land0  = init_lph0 * houses0
+        hhpkm2_0     = hh0 / max(total_land0, self.eps)
+        dense        = fp["dense_city_density"]
         self.sprawl_stock = dense / hhpkm2_0
 
-        # 7) Initialize land‐per‐house stock
+        # 8) Initialize land‐per‐house stock
         self.land_per_house_stock = params["initial_land_per_house"]
 
     def calculate_model_variables(self, houses, time):
@@ -53,27 +58,28 @@ class HousingModel:
         P0 = params["initial_pop"]
         r  = fp["pop_growth_rate"]
         K  = fp["pop_carrying_capacity"]
-        mv["population"] = K / (1 + ((K - P0) / P0) * np.exp(-r * time))
+        mv["population_target"] = K / (1 + ((K - P0) / P0) * np.exp(-r * time))
 
         # Housing basics
-        mv["households"] = mv["population"] / params["avg_household_size"]
+        mv["households"] = self.population_stock / params["avg_household_size"]
         mv["houses_to_households_ratio"] = houses / mv["households"]
         mv["housing_scarcity"] = max(0, 1 - mv["houses_to_households_ratio"])
         mv["housing_slack"]   = max(0, mv["houses_to_households_ratio"] - 1)
 
         # Housing cost response
         mv["e_scar"] = self.u.normalized_exp_growth(mv["housing_scarcity"], fp["scarcity_sensitivity"])
-        mv["e_slack"] = self.u.normalized_exp_growth(mv["housing_slack"],    fp["slack_sensitivity"])
+        mv["e_slack"] = self.u.normalized_exp_growth(mv["housing_slack"], fp["slack_sensitivity"])
         delta = mv["e_scar"] - mv["e_slack"]
         min_cost = 0.5 * params["initial_housing_cost"]
-        mv["housing_cost"] = max(min_cost, (1 + delta) * params["initial_housing_cost"])
+        mv["housing_cost_target"] = max(min_cost, (1 + delta) * params["initial_housing_cost"])
 
         # Financing & private investment
         mv["effect_of_financing_on_construction_rate"] = self.u.saturating_response(
             pol["financial_availability"], fp["K_fin"]
         )
-        mv["private_investment"] = params["private_investment_base"] * self.u.power_elasticity(
-            mv["housing_scarcity"], fp["inv_scarcity_sensitivity"]
+        cost_ratio = self.housing_cost_stock / params["initial_housing_cost"]
+        mv["private_investment_target"] = params["private_investment_base"] * self.u.power_elasticity(
+            cost_ratio, fp["inv_cost_sensitivity"]
         )
 
         # Stakeholder compliance → public funding
@@ -107,14 +113,19 @@ class HousingModel:
         # 1) Instantaneous variables
         mv = self.calculate_model_variables(houses, time)
 
-        # 2) Tax & investment delays
+        # 2) Update housing cost stock (first‐order delay)
+        self.housing_cost_stock += (
+            mv["housing_cost_target"] - self.housing_cost_stock
+        ) / self.housing_delay * dt
+        mv["housing_cost"] = self.housing_cost_stock
+
+        # 3) Tax & investment delays
         inst_tax_eff = self.u.normalized_exp_growth(
             self.config["model_policies"]["tax_rate"],
             self.config["response_function_parameters"]["elasticity_tax"]
         )
         inst_inv_eff = self.u.saturating_response(
-            mv["private_investment"],
-            self.config["response_function_parameters"]["K_inv"]
+            mv["private_investment_target"], self.config["response_function_parameters"]["K_inv"]
         )
         self.tax_effect_stock += (inst_tax_eff - self.tax_effect_stock) / self.tax_delay * dt
         self.inv_effect_stock += (inst_inv_eff - self.inv_effect_stock) / self.inv_delay * dt
@@ -122,9 +133,19 @@ class HousingModel:
         mv["effect_of_taxes_on_construction_rate"]            = self.tax_effect_stock
         mv["effect_of_private_investment_on_base_construction_rate"] = self.inv_effect_stock
 
-        # 3) Geometry & sprawl‐stock update
+        # 4) Population stock update:
+        #    a) first order toward logistic target
+        pop_flow_in = (mv["population_target"] - self.population_stock) / self.pop_delay
+        #    b) emigration if cost > initial
         params = self.config["model_parameters"]
         fp     = self.config["response_function_parameters"]
+        cost_over = max(0, (self.housing_cost_stock / params["initial_housing_cost"]) - 1)
+        pop_flow_out = fp["pop_emigration_sensitivity"] * cost_over * self.population_stock
+        #    c) net change
+        self.population_stock += (pop_flow_in - pop_flow_out) * dt
+        mv["population"] = self.population_stock
+        
+        # 5) Geometry & sprawl‐stock update
         pol    = self.config["model_policies"]
 
         # a) Desired sprawl from current households & land per house stock
@@ -167,7 +188,7 @@ class HousingModel:
         mv["services_supply"] = self.u.saturating_response(mv["funding_for_services"], fp["K_serv"])
         mv["access_to_services"] = min(mv["services_supply"] / (mv["services_demand"] + self.eps), 1.0)
 
-        # 4) Construction & flows
+        # 6) Construction & flows
         mv["construction_rate_of_houses"] = (
             mv["effect_of_private_investment_on_base_construction_rate"]
             * params["base_construction_rate"]
@@ -181,13 +202,13 @@ class HousingModel:
             * mv["available_land_for_housing"]
         )
 
-        # 5) Housing-increase delay
+        # 7) Housing-increase delay
         self.housing_increase_stock += (
             mv["construction_of_houses"] - self.housing_increase_stock
         ) / self.housing_delay * dt
         mv["housing_stock_increase"] = self.housing_increase_stock
 
-        # 6) Demolition & derivative
+        # 8) Demolition & derivative
         mv["housing_stock_decrease"] = params["housing_demolition_rate"] * houses
         housesD = self.calculate_stock_derivatives(mv)
 
