@@ -100,7 +100,10 @@ class HousingModel:
         mv["private_transportation_investment"] = mv["funding_for_transportation"] * (1 - pol["fraction_of_investment_in_public_transportation"])
 
         # Raw transport effects
-        mv["effect_pub"]  = self.u.saturating_response(mv["public_transportation_investment"], fp["K_pub"])
+        mv["effect_pub"]  = self.u.normalized_power_elasticity(mv["public_transportation_investment"], 
+                                                               fp["public_trns_inv_elasticity"],
+                                                               min_val=1.0,
+                                                               max_val=5.0)
         mv["effect_priv"] = 1 - self.u.saturating_response(mv["private_transportation_investment"], fp["K_priv"])
 
         return mv
