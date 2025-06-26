@@ -1,5 +1,5 @@
 simulation_parameters:
-  houses_init: 328_908      # inhabited private dwellings, Censo 2020 :contentReference[oaicite:0]{index=0}
+  houses_init: 328_908      # inhabited private dwellings (Monterrey municipality), Censo 2020 :contentReference[oaicite:0]{index=0}
   sim_time: 30 # Simulation time in years
   time_step: 0.1 # Time step for the simulation in years
 
@@ -10,9 +10,9 @@ model_parameters:
   base_construction_rate: 0.012  # 20 318 new / 1 655 256 existing dwellings in NL 2023 → 1.2 % :contentReference[oaicite:4]{index=4}
   total_land_area: 969.7    # km², official INEGI figure :contentReference[oaicite:5]{index=5}
   housing_demolition_rate: 0.002 # no municipal series; uses intl. 0.2 % engineering norm (see note)
-  property_tax_per_capita: 1043       # 2 ‰ annual predial rate in the Ley de Hacienda N.L. :contentReference[oaicite:6]{index=6}
   initial_land_per_house: 0.00016   # km² typical single-family lot in local developments :contentReference[oaicite:7]{index=7}
-  initial_annual_leasing_cost: 294_420 # MXN per year: 24_535 MXN per month median rent in NL * 12 months
+  initial_housing_cost: 6_473_368 # MXN
+  rent_to_housing_cost_ratio: 0.004 # rent is 0.04% of housing cost
 
 model_policies:
   financial_availability: 0.70
@@ -23,27 +23,45 @@ model_policies:
   engagement_with_stakeholders: 0.64  # data from EL ECONOMISTA
 
 response_function_parameters:
-  scarcity_sensitivity: 0.6     # controls how sharply cost rises with scarcity
-  slack_sensitivity: 0.4     # controls how sharply cost falls with slack
-  K_fin:                0.4     # half‐saturation for financing effect
-  elasticity_tax:       3.0     # tax→construction sensitivity
-  k_eng:                6.0     # stakeholder engagement steepness
-  mid_eng:              0.5     # stakeholder engagement midpoint
-  K_inv:                70     # half‐saturation for private investment
-  K_serv:              200     # half‐saturation for service supply
-  pop_growth_rate:      0.01    # population growth rate per year
-  pop_carrying_capacity: 5000 # maximum population capacity of the model
-  public_trns_inv_elasticity: 1
-  K_priv:              120     # half‐saturation for private transportation investment
-  K_servd:             10    # half‐saturation for service demand
-  dense_city_density: 15    # Standard density for a dense city in households/km^2
-  inv_scarcity_sensitivity: 2.0 # controls how sharply private investment rises with scarcity
-  min_land_per_house: 10    # e.g. at full proximity (dense city)
-  max_land_per_house: 100    # e.g. at zero proximity (sprawling city)
-  max_expected_sprawl: 1000
-  sprawl_penalty_sensitivity: 0.7
-  inv_cost_sensitivity:  2.0   # elasticity of private investment to housing cost
-  pop_emigration_sensitivity: 0.7  # rate at which population leaves per unit cost‐over‐initial
+  # ─── Price formation ─────────────────────────────────────────────────────────
+  K_scarcity: 0.60        # half-saturation at 60 % scarcity factor
+  K_slack:    1.5        # half-saturation at 40 % slack factor
+  min_scarcity_floor: 0.1    # never let scarcity_factor drop below 10%
+
+  # ─── Finance, tax & engagement ───────────────────────────────────────────────
+  K_fin:          0.40              # 50 % financing effect reached at index=0.4
+  K_tax: 0.6                        # half-saturation at 60 % tax rate
+  k_eng:          6.0               # same steepness for logistic engagement
+  mid_eng:        0.5               # midpoint unchanged
+
+  # ─── Private-investment & service supply scales (now in **MXN**) ────────────
+  K_inv:   50_000_000_000           # half-saturation
+  K_serv:   8_000_000_000           # service funding saturates near current 4 bn MXN
+
+  # ─── Population dynamics ────────────────────────────────────────────────────
+  pop_growth_rate:       0.01       # unchanged logistic intrinsic growth
+  pop_carrying_capacity: 5_000_000  # unchanged (Monterrey metro ceiling)
+
+  # ─── Transport-investment scales (MXN) ──────────────────────────────────────
+  K_pub: 200_000_000    
+  K_priv:        500_000_000        # ≈½-saturation for private-transport spend
+                                     # (80 % of 0.595 bn ≈ 0.48 bn MXN/yr)
+
+  # ─── Service-demand and density units (households · km⁻²) ──────────────────
+  K_servd:          3_000           # demand half-saturates near 3 k hh / km²
+  dense_city_density: 12_000         # target density used in sprawl index
+
+  # ─── Land-per-house response (now in **km²** not m²) ────────────────────────
+  min_land_per_house: 0.00008       # 80 m² lot at “full proximity”
+  max_land_per_house: 0.00035       # 350 m² lot at low proximity
+
+  # ─── Sprawl penalty ─────────────────────────────────────────────────────────
+  max_expected_sprawl:      1     # TODO: this might need adjustment
+  sprawl_penalty_sensitivity: 0.7   # unchanged
+
+  # ─── Elasticities that stayed dimensionless ────────────────────────────────
+  inv_cost_sensitivity:     2.0
+  pop_emigration_sensitivity: 0.7
 
 delays:
   tax_effect_delay:          2.0   # time units to “ramp up” tax effect
