@@ -27,7 +27,7 @@ class HousingModel:
         self.eps = 1e-6
 
         # 5) Initialize delay stocks
-        self.tax_effect_stock       = self.u.normalized_exp_growth(pol["tax_rate"], fp["elasticity_tax"])
+        self.tax_effect_stock       = self.u.saturating_response(pol["tax_rate"], fp["K_tax"])
         self.inv_effect_stock       = self.u.saturating_response(params["private_investment_base"], fp["K_inv"])
         self.housing_increase_stock = 0.0
 
@@ -67,8 +67,8 @@ class HousingModel:
         mv["housing_slack"]   = max(0, mv["houses_to_households_ratio"] - 1)
 
         # Housing cost response
-        mv["e_scar"] = self.u.normalized_exp_growth(mv["housing_scarcity"], fp["scarcity_sensitivity"])
-        mv["e_slack"] = self.u.normalized_exp_growth(mv["housing_slack"], fp["slack_sensitivity"])
+        mv["e_scar"] = self.u.saturating_response(mv["housing_scarcity"], fp["K_scarcity"])
+        mv["e_slack"] = self.u.saturating_response(mv["housing_slack"], fp["K_slack"])
         delta = mv["e_scar"] - mv["e_slack"]
         min_cost = 0.5 * params["initial_housing_cost"]
         mv["housing_cost_target"] = max(min_cost, (1 + delta) * params["initial_housing_cost"])
@@ -77,9 +77,9 @@ class HousingModel:
         mv["effect_of_financing_on_construction_rate"] = self.u.saturating_response(
             pol["financial_availability"], fp["K_fin"]
         )
-        cost_ratio = self.housing_cost_stock / params["initial_housing_cost"]
+        mv["cost_ratio"] = self.housing_cost_stock / params["initial_housing_cost"]
         mv["private_investment_target"] = params["private_investment_base"] * self.u.power_elasticity(
-            cost_ratio, fp["inv_cost_sensitivity"]
+            mv["cost_ratio"], fp["inv_cost_sensitivity"]
         )
 
 
@@ -90,6 +90,11 @@ class HousingModel:
         return self.housing_increase_stock - mv["housing_stock_decrease"]
 
     def run_step(self, houses, time, dt):
+        
+        pol    = self.config["model_policies"]
+        params = self.config["model_parameters"]
+        fp     = self.config["response_function_parameters"]
+        
         # 1) Instantaneous variables
         mv = self.calculate_model_variables(houses, time)
 
@@ -98,15 +103,12 @@ class HousingModel:
             mv["housing_cost_target"] - self.housing_cost_stock
         ) / self.housing_delay * dt
         mv["housing_cost"] = self.housing_cost_stock
-        mv["rent_cost"] = self.housing_cost_stock * self.config["model_parameters"]["rent_to_housing_cost_ratio"]
+        mv["rent_cost"] = self.housing_cost_stock * params["rent_to_housing_cost_ratio"]
 
         # 3) Tax & investment delays
-        inst_tax_eff = self.u.normalized_exp_growth(
-            self.config["model_policies"]["tax_rate"],
-            self.config["response_function_parameters"]["elasticity_tax"]
-        )
+        inst_tax_eff = self.u.saturating_response(pol["tax_rate"], fp["K_tax"])
         inst_inv_eff = self.u.saturating_response(
-            mv["private_investment_target"], self.config["response_function_parameters"]["K_inv"]
+            mv["private_investment_target"], fp["K_inv"]
         )
         self.tax_effect_stock += (inst_tax_eff - self.tax_effect_stock) / self.tax_delay * dt
         self.inv_effect_stock += (inst_inv_eff - self.inv_effect_stock) / self.inv_delay * dt
@@ -118,8 +120,7 @@ class HousingModel:
         #    a) first order toward logistic target
         pop_flow_in = (mv["population_target"] - self.population_stock) / self.pop_delay
         #    b) emigration if cost > initial
-        params = self.config["model_parameters"]
-        fp     = self.config["response_function_parameters"]
+       
         cost_over = max(0, (self.housing_cost_stock / params["initial_housing_cost"]) - 1)
         pop_flow_out = fp["pop_emigration_sensitivity"] * cost_over * self.population_stock
         #    c) net change
@@ -127,7 +128,7 @@ class HousingModel:
         mv["population"] = self.population_stock
         
         # 5) Stakeholder compliance → public funding
-        pol    = self.config["model_policies"]
+        
         mv["compliance_rate"] = self.u.logistic(
             pol["engagement_with_stakeholders"], fp["k_eng"], fp["mid_eng"]
         )
@@ -224,7 +225,7 @@ class HousingModel:
             * mv["construction_rate_of_houses"]
             * mv["available_land_for_housing"]
         )
-        
+
         # 7) Housing-increase delay
         self.housing_increase_stock += (
             mv["construction_of_houses"] - self.housing_increase_stock
