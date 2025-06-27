@@ -1,0 +1,74 @@
+simulation_parameters:
+  houses_init: 328_908      # inhabited private dwellings (Monterrey municipality), Censo 2020 :contentReference[oaicite:0]{index=0}
+  sim_time: 30 # Simulation time in years
+  time_step: 0.1 # Time step for the simulation in years
+
+model_parameters:
+  initial_pop: 1_142_994    # population of the municipality, Censo 2020 :contentReference[oaicite:1]{index=1}
+  avg_household_size: 3.5   # occupants per dwelling, Nuevo León average 2020 :contentReference[oaicite:2]{index=2}
+  private_investment_base: 30_500_000_000  # ≈20 318 new units × 1.5 M MXN median price :contentReference[oaicite:3]{index=3}
+  base_construction_rate: 0.012  # 20 318 new / 1 655 256 existing dwellings in NL 2023 → 1.2 % :contentReference[oaicite:4]{index=4}
+  total_land_area: 969.7    # km², official INEGI figure :contentReference[oaicite:5]{index=5}
+  housing_demolition_rate: 0.002 # no municipal series; uses intl. 0.2 % engineering norm (see note)
+  initial_land_per_house: 0.00016   # km² typical single-family lot in local developments :contentReference[oaicite:7]{index=7}
+  initial_housing_cost: 6_473_368 # MXN
+  rent_to_housing_cost_ratio: 0.004 # rent is 0.04% of housing cost
+
+model_policies:
+  financial_availability: 0.70            # stable, no change
+  tax_rate: 0.002                         # same rate
+  fraction_of_funding_for_transportation: 0.14
+  zoning_and_regulation: 0.25             # more flexible regulation
+  fraction_of_investment_in_public_transportation: 0.25  # marginally higher
+  engagement_with_stakeholders: 0.85      # strong inter-institutional coordination and compliance
+
+
+response_function_parameters:
+  # ─── Price formation ─────────────────────────────────────────────────────────
+  K_scarcity: 0.60        # half-saturation at 60 % scarcity factor
+  K_slack:    1.5        # half-saturation at 40 % slack factor
+  min_scarcity_floor: 0.1    # never let scarcity_factor drop below 10%
+
+  # ─── Finance, tax & engagement ───────────────────────────────────────────────
+  K_fin:          0.40              # 50 % financing effect reached at index=0.4
+  K_tax: 0.6                        # half-saturation at 60 % tax rate
+  k_eng:          6.0               # same steepness for logistic engagement
+  mid_eng:        0.5               # midpoint unchanged
+
+  # ─── Private-investment & service supply scales (now in **MXN**) ────────────
+  K_inv:   50_000_000_000           # half-saturation
+  K_serv:   8_000_000_000           # service funding saturates near current 4 bn MXN
+
+  # ─── Population dynamics ────────────────────────────────────────────────────
+  pop_growth_rate:       0.01       # unchanged logistic intrinsic growth
+  pop_carrying_capacity: 5_000_000  # unchanged (Monterrey metro ceiling)
+
+  # ─── Transport-investment scales (MXN) ──────────────────────────────────────  
+  mid_pub: 0.05  # midpoint at 50 million MXN = 0.05 bn
+  k_pub:   1    # steep steepness 
+  K_priv:        500_000_000        # ≈½-saturation for private-transport spend
+                                     # (80 % of 0.595 bn ≈ 0.48 bn MXN/yr)
+
+  # ─── Service-demand and density units (households · km⁻²) ──────────────────
+  K_servd:          3_000           # demand half-saturates near 3 k hh / km²
+  dense_city_density: 12_000         # target density used in sprawl index
+
+  # ─── Land-per-house response (now in **km²** not m²) ────────────────────────
+  min_land_per_house: 0.00008       # 80 m² lot at “full proximity”
+  max_land_per_house: 0.00035       # 350 m² lot at low proximity
+
+  # ─── Sprawl penalty ─────────────────────────────────────────────────────────
+  max_expected_sprawl:      5     # TODO: this might need adjustment
+  sprawl_penalty_sensitivity: 0.2   # unchanged
+
+  # ─── Elasticities that stayed dimensionless ────────────────────────────────
+  inv_cost_sensitivity:     2.0
+  pop_emigration_sensitivity: 0.7
+
+delays:
+  tax_effect_delay:          2.0   # time units to “ramp up” tax effect
+  private_investment_delay:  1.5   # likewise for private‐investment effect
+  housing_stock_delay:        2.0   # likewise for housing stock effect
+  sprawl_delay:              2.0   # likewise for sprawl effect
+  land_per_house_delay: 2.0    # how quickly actual land_per_house adjusts
+  pop_delay: 2.0

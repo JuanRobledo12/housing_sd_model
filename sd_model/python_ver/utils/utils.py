@@ -16,6 +16,12 @@ class Utils:
     def power_elasticity(self, x: float, elasticity: float) -> float:
         """A simple power‐law: x**elasticity."""
         return x**elasticity
+    
+    def normalized_power_elasticity(self, x: float, elasticity: float, min_val: float, max_val: float) -> float:
+        """Normalized power‐law: (x**elasticity - min_val) / (max_val - min_val)."""
+        power_value = x ** elasticity
+        normalized_value = (power_value - min_val) / (max_val - min_val)
+        return normalized_value
 
     def saturating_response(self, x: float, half_sat: float) -> float:
         """

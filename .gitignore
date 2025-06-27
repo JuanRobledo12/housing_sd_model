@@ -194,4 +194,4 @@ cython_debug/
 .cursorindexingignore
 
 # ignore dics with large files
-sd_model/python_ver/output/baseline_sim_results/
+sd_model/python_ver/output/
