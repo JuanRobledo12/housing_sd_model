@@ -42,8 +42,9 @@ response_function_parameters:
   pop_growth_rate:       0.01       # unchanged logistic intrinsic growth
   pop_carrying_capacity: 5_000_000  # unchanged (Monterrey metro ceiling)
 
-  # ─── Transport-investment scales (MXN) ──────────────────────────────────────
-  K_pub: 200_000_000    
+  # ─── Transport-investment scales (MXN) ──────────────────────────────────────  
+  mid_pub: 0.05  # midpoint at 50 million MXN = 0.05 bn
+  k_pub:   1    # steep steepness 
   K_priv:        500_000_000        # ≈½-saturation for private-transport spend
                                      # (80 % of 0.595 bn ≈ 0.48 bn MXN/yr)
 
@@ -56,8 +57,8 @@ response_function_parameters:
   max_land_per_house: 0.00035       # 350 m² lot at low proximity
 
   # ─── Sprawl penalty ─────────────────────────────────────────────────────────
-  max_expected_sprawl:      1     # TODO: this might need adjustment
-  sprawl_penalty_sensitivity: 0.7   # unchanged
+  max_expected_sprawl:      5     # TODO: this might need adjustment
+  sprawl_penalty_sensitivity: 0.2   # unchanged
 
   # ─── Elasticities that stayed dimensionless ────────────────────────────────
   inv_cost_sensitivity:     2.0
