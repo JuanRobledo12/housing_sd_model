@@ -146,9 +146,9 @@ class HousingModel:
         # Transportation investments
         mv["public_transportation_investment"]  = mv["funding_for_transportation"] * pol["fraction_of_investment_in_public_transportation"]
         mv["private_transportation_investment"] = mv["funding_for_transportation"] * (1 - pol["fraction_of_investment_in_public_transportation"])
-
+        mv["public_transportation_investment_in_billions"] = mv["public_transportation_investment"] / 1e9
         # Raw transport effects
-        mv["effect_pub"]  = self.u.saturating_response(mv["public_transportation_investment"], fp["K_pub"])
+        mv["effect_pub"]  = self.u.logistic(mv["public_transportation_investment_in_billions"], fp["k_pub"], fp["mid_pub"])
         mv["effect_priv"] = 1 - self.u.saturating_response(mv["private_transportation_investment"], fp["K_priv"])
 
 
@@ -221,7 +221,7 @@ class HousingModel:
         # 6e) Finally compute flow of new houses:
         mv["construction_of_houses"] = (
             houses
-            * scarcity_factor
+            * (1 + scarcity_factor)
             * mv["construction_rate_of_houses"]
             * mv["available_land_for_housing"]
         )
