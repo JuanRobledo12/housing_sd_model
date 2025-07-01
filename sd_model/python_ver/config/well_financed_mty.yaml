@@ -15,12 +15,12 @@ model_parameters:
   rent_to_housing_cost_ratio: 0.004 # rent is 0.04% of housing cost
 
 model_policies:
-  financial_availability: 0.90           # expanded credit channels (INFONAVIT, land banks)
-  tax_rate: 0.003                        # modest tax increase (0.3%) to reflect improved collection
-  fraction_of_funding_for_transportation: 0.16
+  financial_availability: 0.95          # expanded credit channels (INFONAVIT, land banks)
+  tax_rate: 0.004                        # modest tax increase (0.3%) to reflect improved collection
+  fraction_of_funding_for_transportation: 0.20
   zoning_and_regulation: 0.40           # unchanged
-  fraction_of_investment_in_public_transportation: 0.30  # better-directed funds
-  engagement_with_stakeholders: 0.75     # improved tax compliance via reforms
+  fraction_of_investment_in_public_transportation: 0.35  # better-directed funds
+  engagement_with_stakeholders: 0.85     # improved tax compliance via reforms
 
 
 response_function_parameters:
