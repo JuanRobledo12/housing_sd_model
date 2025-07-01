@@ -58,7 +58,7 @@ python sd_model/python_ver/baseline_run_v6.py
 ```
 
 The script loads `model_v6.py`, iterates through time steps and stores the
-variables computed by `HousingModel`【F:sd_model/python_ver/baseline_run_v6.py†L1-L58】.
+variables computed by `HousingModel`.
 
 ### Scenario simulation
 
@@ -75,7 +75,7 @@ print("Results saved to", path)
 
 The runner writes `scenario_sim_results_<config>.csv` to
 `sd_model/python_ver/output/scenario_results` and returns the DataFrame with the
-results【F:sd_model/python_ver/scenario_run.py†L6-L45】.
+results.
 
 ## Model description
 
@@ -84,14 +84,14 @@ file, it simulates housing supply, population growth and land use through a
 series of delayed feedback loops:
 
 * Population follows a logistic trend and can emigrate if housing costs rise
-  above the starting level【F:sd_model/python_ver/model_v6.py†L58-L129】.
+  above the starting level.
 * Housing costs respond to scarcity or slack and adjust gradually over time
-  via a first‑order delay【F:sd_model/python_ver/model_v6.py†L70-L108】.
+  via a first‑order delay.
 * Property taxes generate public funding which influences transport investment,
-  proximity and urban sprawl【F:sd_model/python_ver/model_v6.py†L131-L175】.
+  proximity and urban sprawl.
 * Construction of new houses depends on private investment, financing
   availability and tax effects, with additional delays for stock changes and
-  demolition rates【F:sd_model/python_ver/model_v6.py†L200-L240】.
+  demolition rates.
 
 Model parameters are stored under `sd_model/python_ver/config/` and can be
 modified to explore different policy scenarios.
