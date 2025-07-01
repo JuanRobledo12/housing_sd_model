@@ -13,6 +13,7 @@ class HousingModel:
         self.tax_delay     = delays.get("tax_effect_delay", 2.0)
         self.inv_delay     = delays.get("private_investment_delay", 1.5)
         self.housing_delay = delays.get("housing_stock_delay", 3.0)
+        self.housing_cost_delay = delays.get("housing_cost_delay", 3.0)
         self.sprawl_delay  = delays.get("sprawl_delay", 3.0)
         self.land_delay = delays.get("land_per_house_delay", 2.0)
         self.pop_delay     = delays.get("pop_delay", 2.0)
@@ -101,7 +102,7 @@ class HousingModel:
         # 2) Update housing cost stock (first‐order delay) and rent_cost
         self.housing_cost_stock += (
             mv["housing_cost_target"] - self.housing_cost_stock
-        ) / self.housing_delay * dt
+        ) / self.housing_cost_delay * dt
         mv["housing_cost"] = self.housing_cost_stock
         mv["rent_cost"] = self.housing_cost_stock * params["rent_to_housing_cost_ratio"]
 
